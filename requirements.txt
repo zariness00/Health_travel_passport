@@ -7,6 +7,7 @@ cffi==2.0.0
 charset-normalizer==3.4.7
 click==8.3.3
 cryptography==47.0.0
+docx==0.2.4
 fastapi==0.136.1
 filelock==3.29.0
 fsspec==2026.3.0
@@ -27,6 +28,7 @@ httpx==0.28.1
 huggingface_hub==1.12.0
 idna==3.13
 Jinja2==3.1.6
+lxml==6.1.0
 markdown-it-py==4.0.0
 MarkupSafe==3.0.3
 mdurl==0.1.2
