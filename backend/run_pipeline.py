@@ -47,7 +47,7 @@ if __name__ == "__main__":
     print(f"\nProcessing {len(documents)} document(s)...\n")
     result = build_doctor_pack(documents)
 
-    print("\n========== DOCTOR PACK ==========")
+    print("\nDoctor pack")
     print(json.dumps(result["doctor_pack"], indent=2, ensure_ascii=False))
     print(f"\nDocuments processed: {result['documents_processed']}")
     print(f"By type: {result['documents_by_type']}")

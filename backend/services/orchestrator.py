@@ -126,7 +126,7 @@ def assemble_summary(
 
     logger.info("Orchestrator: assembling per-document summary...")
     response = _generate_with_retry(prompt)
-    return _parse_json(response.text)
+    return _parse_json(response)
 
 
 def run(
@@ -238,7 +238,7 @@ def build_doctor_pack(
 
     logger.info("Orchestrator: building final doctor pack...")
     response = _generate_with_retry(prompt)
-    doctor_pack = _parse_json(response.text)
+    doctor_pack = _parse_json(response)
 
     return {
         "doctor_pack": doctor_pack,
