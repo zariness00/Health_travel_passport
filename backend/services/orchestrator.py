@@ -1,5 +1,5 @@
-import google.generativeai as googleai
-from google.api_core import exceptions as google_exceptions
+from google import genai
+from google.genai import errors as genai_errors
 import json
 import os
 import logging
@@ -11,23 +11,24 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-googleai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-model = googleai.GenerativeModel("gemini-2.5-flash")
+client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+ORCHESTRATOR_MODEL = "gemini-2.5-flash"
+
+DOCUMENT_TYPES = ["blood_test", "doctor_letters", "xray_report", "prescription", "unknown"]
 
 
 def _generate_with_retry(prompt: str, max_retries: int = 5) -> str:
     delay = 10
     for attempt in range(max_retries):
         try:
-            return model.generate_content(prompt).text
-        except (google_exceptions.ResourceExhausted, google_exceptions.ServiceUnavailable) as e:
+            response = client.models.generate_content(model=ORCHESTRATOR_MODEL, contents=prompt)
+            return response.text
+        except (genai_errors.ClientError, genai_errors.ServerError) as e:
             if attempt == max_retries - 1:
                 raise
             logger.warning(f"Gemini error ({e.__class__.__name__}), retrying in {delay}s... (attempt {attempt + 1}/{max_retries})")
             time.sleep(delay)
             delay *= 2
-
-DOCUMENT_TYPES = ["blood_test", "doctor_letters", "xray_report", "prescription", "unknown"]
 
 
 def analyze_doc(raw_text: str) -> dict:
