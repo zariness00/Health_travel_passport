@@ -7,6 +7,9 @@ import json
 from pathlib import Path
 from services.document_loader import extract_text_from_file, SUPPORTED_FORMATS
 from services.orchestrator import build_doctor_pack
+from services.translator import translate
+from services.extractor import extract
+from services.flagging import flag
 
 
 def load_documents_from_folder(folder_path: str) -> list[dict]:
@@ -45,7 +48,12 @@ if __name__ == "__main__":
         sys.exit(1)
 
     print(f"\nProcessing {len(documents)} document(s)...\n")
-    result = build_doctor_pack(documents)
+    result = build_doctor_pack(
+        documents,
+        translator_func=translate,
+        extractor_func=extract,
+        flagging_func=flag,
+    )
 
     print("\nDoctor pack")
     print(json.dumps(result["doctor_pack"], indent=2, ensure_ascii=False))
