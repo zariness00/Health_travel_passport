@@ -10,6 +10,7 @@ from services.orchestrator import build_doctor_pack
 from services.translator import translate
 from services.extractor import extract
 from services.flagging import flag
+from services.explainer import explain
 
 
 def load_documents_from_folder(folder_path: str) -> list[dict]:
@@ -59,3 +60,8 @@ if __name__ == "__main__":
     print(json.dumps(result["doctor_pack"], indent=2, ensure_ascii=False))
     print(f"\nDocuments processed: {result['documents_processed']}")
     print(f"By type: {result['documents_by_type']}")
+
+    if result["lab_extracted"] or result["lab_flagged"]:
+        print("\nLAB EXPLANATION")
+        lab_explanation = explain(result["lab_extracted"], result["lab_flagged"])
+        print(lab_explanation)

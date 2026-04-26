@@ -77,19 +77,43 @@ def route_to_workers(analysis: dict) -> list[str]:
 
 
 def assemble_summary(
-        original_text: str,
         translated_text: str,
         analysis: dict,
         extracted_data: dict = None,
         flagged_values: dict = None
 ) -> dict:
-    extracted_str = json.dumps(extracted_data, indent=2) if extracted_data else "Not available"
-    flagged_str = json.dumps(flagged_values, indent=2) if flagged_values else "Everything seems normal"
+    has_structured_data = extracted_data and any(extracted_data.values())
+    flagged_str = json.dumps(flagged_values.get("flagged_values", []), indent=2) if flagged_values else "[]"
+
+    # build structured data block from worker outputs
+    if has_structured_data:
+        structured_block = f"""
+        The following was already extracted by specialist models — treat this as ground truth:
+
+        Medications: {json.dumps(extracted_data.get('medications', []))}
+        Conditions: {json.dumps(extracted_data.get('conditions', []))}
+        Symptoms: {json.dumps(extracted_data.get('symptoms', []))}
+        Procedures: {json.dumps(extracted_data.get('procedures', []))}
+        Lab values: {json.dumps(extracted_data.get('lab_values', []))}
+        Dates: {json.dumps(extracted_data.get('dates', []))}
+        Abnormal values (rule-based, verified): {flagged_str}
+
+        Use the document text below ONLY to fill gaps not covered above:
+        \"\"\"
+        {translated_text[:1000]}
+        \"\"\"
+        """
+    else:
+        structured_block = f"""
+        No structured extraction available. Use the full document text:
+        \"\"\"
+        {translated_text[:3000]}
+        \"\"\"
+        """
 
     prompt = f"""
         You are a medical document summarisation assistant.
 
-        Based on the following information, generate a structured summary in English.
         Respond ONLY with a valid JSON object — no explanation, no markdown, no preamble.
 
         Document type: {analysis.get('document_type')}
@@ -98,16 +122,7 @@ def assemble_summary(
         Doctor: {analysis.get('doctor_name')}
         Clinic: {analysis.get('clinic_name')}
 
-        Translated document text:
-        \"\"\"
-        {translated_text[:3000]}
-        \"\"\"
-
-        Extracted structured data:
-        {extracted_str}
-
-        Flagged abnormal values:
-        {flagged_str}
+        {structured_block}
 
         Return this exact structure:
         {{
@@ -155,7 +170,6 @@ def run(
         flagged_values = flagging_func(extracted_data)
 
     summary = assemble_summary(
-        original_text=raw_text,
         translated_text=translated_text,
         analysis=analysis,
         extracted_data=extracted_data,
@@ -182,6 +196,7 @@ def build_doctor_pack(
     everything into a single doctor pack.
     """
     results_by_type = {}
+    lab_extracted, lab_flagged = None, None
 
     for i, doc in enumerate(documents):
         raw_text = doc.get("raw_text", "")
@@ -201,6 +216,10 @@ def build_doctor_pack(
             "analysis": result["analysis"],
             "summary": result["summary"],
         })
+
+        if doc_type == "blood_test":
+            lab_extracted = result.get("extracted_data")
+            lab_flagged = result.get("flagged_values")
 
     grouped_str = json.dumps(results_by_type, indent=2, ensure_ascii=False)
 
@@ -232,7 +251,7 @@ def build_doctor_pack(
             "other": "<any other relevant findings>"
         }},
         "current_medications": ["<medication 1>", "<medication 2>"],
-        "abnormal_values": ["<finding 1>", "<finding 2>"],
+        "abnormal_values": ["<only numeric lab test results outside the reference range, e.g. 'Vitamin D 17 ng/mL (normal 30-100)'. Do NOT include diagnoses, conditions, or symptoms here>"],
         "recent_medical_activities": ["<activity 1 with date>", "<activity 2 with date>"]
         }}
     """
@@ -245,6 +264,8 @@ def build_doctor_pack(
         "doctor_pack": doctor_pack,
         "documents_processed": len(documents),
         "documents_by_type": {k: len(v) for k, v in results_by_type.items()},
+        "lab_extracted": lab_extracted,
+        "lab_flagged": lab_flagged,
     }
 
 
