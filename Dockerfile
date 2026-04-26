@@ -14,7 +14,7 @@ COPY Health_travel_passport/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the backend source
-COPY Health_travel_passport/backend/ ./
+COPY Health_travel_passport/med-agent ./
 
 # Run the pubsub worker
 CMD ["python", "pubsub_worker.py"]

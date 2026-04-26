@@ -4,8 +4,7 @@ __pycache__/
 *.pyc
 .DS_Store
 
-backend/services/test_document/
-backend/services/test_document/
+med-agent/services/test_document/
 
 # Terraform
 *.tfstate
