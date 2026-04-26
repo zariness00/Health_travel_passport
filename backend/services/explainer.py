@@ -37,7 +37,6 @@ Symptoms noted: {", ".join(symptoms) or "none"}
 Write one short paragraph (3-5 sentences) explaining what these findings mean in plain language
 a non-medical person can understand. Do not use medical jargon. Be reassuring but honest.
 Do not recommend treatments. Do not start with "I".
-Do not assume the patient has symptoms — instead say signs of [symptom] may be present, or the patient might notice [symptom].
 """
 
     delay = 10

@@ -181,6 +181,8 @@ def run(
         "workers_used": workers,
         "translated_text": translated_text,
         "summary": summary,
+        "extracted_data": extracted_data,
+        "flagged_values": flagged_values,
     }
 
 

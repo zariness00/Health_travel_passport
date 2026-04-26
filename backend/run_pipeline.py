@@ -6,7 +6,7 @@ import sys
 import json
 from pathlib import Path
 from services.document_loader import extract_text_from_file, SUPPORTED_FORMATS
-from services.orchestrator import build_doctor_pack
+from services.orchestrator import build_doctor_pack, analyze_doc
 from services.translator import translate
 from services.extractor import extract
 from services.flagging import flag
