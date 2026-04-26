@@ -20,6 +20,10 @@ publisher = pubsub_v1.PublisherClient()
 subscriber = pubsub_v1.SubscriberClient()
 
 def download_blob(bucket_name, source_blob_name):
+    # accept full gs:// URI or plain object name
+    if source_blob_name.startswith("gs://"):
+        without_scheme = source_blob_name[len("gs://"):]
+        bucket_name, _, source_blob_name = without_scheme.partition("/")
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(source_blob_name)
     return blob.download_as_bytes()
@@ -28,7 +32,8 @@ def callback(message):
     print(f"Received message: {message.data}")
     try:
         data = json.loads(message.data.decode("utf-8"))
-        
+        print(f"Parsed payload keys: {list(data.keys())}")
+
         # We handle "DoctorPack" category specifically
         if data.get("category") != "DoctorPack":
             print(f"Skipping category: {data.get('category')}")
@@ -36,16 +41,20 @@ def callback(message):
             return
 
         user_id = data.get("user_id")
-        doc_list = data.get("metadata", []) # Go backend sends list of docs in metadata
-        
+        doc_list = data.get("metadata") or []  # protect against null
+        if not doc_list:
+            print(f"No documents in metadata, payload was: {data}")
+            message.ack()
+            return
+
         processed_docs = []
         for doc in doc_list:
             storage_path = doc.get("storage_path")
             original_name = doc.get("original_name")
-            
+
             print(f"Downloading: {storage_path}")
             file_bytes = download_blob(BUCKET_NAME, storage_path)
-            
+
             text_result = extract_text_from_file(file_bytes, original_name)
             processed_docs.append({
                 "filename": original_name,
