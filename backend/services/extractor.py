@@ -4,6 +4,8 @@ import time
 import json
 import logging
 import requests
+from google import genai
+from google.genai import errors as genai_errors
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,6 +14,9 @@ logger = logging.getLogger(__name__)
 
 HF_API_KEY = os.getenv("HF_API_KEY")
 NER_MODEL_URL = "https://router.huggingface.co/hf-inference/models/d4data/biomedical-ner-all"
+
+_gemini_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+FALLBACK_MODEL = "gemini-2.5-flash-lite"
 
 
 LAB_PATTERN = re.compile(
@@ -52,6 +57,11 @@ SKIP_NAMES = {"patient", "date", "doctor", "physician", "clinic", "hospital",
 
 def extract(text: str) -> dict:
     lab_values = _extract_lab_values(text)
+
+    # regex misses table-format lab reports — fall back to Gemini
+    if not lab_values:
+        lab_values = _extract_lab_values_with_gemini(text)
+
     labeled_meds = _extract_labeled_fields(text, LABELED_MED_PATTERN)
     labeled_conditions = _extract_labeled_fields(text, LABELED_DIAGNOSIS_PATTERN)
     ner_entities = _extract_ner_entities(text)
@@ -110,6 +120,40 @@ def _extract_lab_values(text: str) -> list[dict]:
             "reference_range": reference,
         })
     return results
+
+
+def _extract_lab_values_with_gemini(text: str, max_retries: int = 3) -> list[dict]:
+    """Fallback for table-format lab reports the regex can't parse."""
+    prompt = f"""Extract all lab test results from this medical document.
+Return ONLY a valid JSON array — no markdown, no explanation.
+Each item: {{"name": str, "value": str, "unit": str, "reference_range": str or null}}.
+Do NOT include patient demographics, addresses, dates, or non-lab fields.
+If no lab values found, return [].
+
+Document text:
+\"\"\"
+{text[:8000]}
+\"\"\"
+"""
+    delay = 5
+    for attempt in range(max_retries):
+        try:
+            response = _gemini_client.models.generate_content(
+                model=FALLBACK_MODEL, contents=prompt
+            )
+            cleaned = response.text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+            values = json.loads(cleaned)
+            if isinstance(values, list):
+                logger.info(f"Extractor: Gemini fallback found {len(values)} lab values")
+                return values
+            return []
+        except (genai_errors.ClientError, genai_errors.ServerError, json.JSONDecodeError) as e:
+            if attempt == max_retries - 1:
+                logger.error(f"Extractor: Gemini fallback failed: {e}")
+                return []
+            time.sleep(delay)
+            delay *= 2
+    return []
 
 
 def _extract_labeled_fields(text: str, pattern: re.Pattern) -> list[str]:

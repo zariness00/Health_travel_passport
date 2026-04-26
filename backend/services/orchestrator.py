@@ -124,11 +124,11 @@ def assemble_summary(
 
         {structured_block}
 
-        Return this exact structure:
+        Return this exact structure (include EVERY abnormal value and medication found, do not limit count):
         {{
         "medical_history_summary": "<key medical findings or history mentioned>",
-        "medications": ["<medication 1>", "<medication 2>"],
-        "abnormalities": ["<abnormal finding 1>", "<abnormal finding 2>"],
+        "medications": ["<every medication found>", "..."],
+        "abnormalities": ["<every abnormal lab value with name, value, unit, and reference range>", "..."],
         "latest_medical_activities": "<most recent tests, visits, or procedures mentioned>",
         "patient_hints": {{
             "name": "<patient name if found>",
@@ -199,6 +199,8 @@ def build_doctor_pack(
     """
     results_by_type = {}
     lab_extracted, lab_flagged = None, None
+    all_flagged_values = []
+    all_medications = []
 
     for i, doc in enumerate(documents):
         raw_text = doc.get("raw_text", "")
@@ -219,11 +221,19 @@ def build_doctor_pack(
             "summary": result["summary"],
         })
 
+        # collect raw worker outputs across all documents
+        if result.get("flagged_values"):
+            all_flagged_values.extend(result["flagged_values"].get("flagged_values", []))
+        if result.get("extracted_data"):
+            all_medications.extend(result["extracted_data"].get("medications", []))
+
         if doc_type == "blood_test":
             lab_extracted = result.get("extracted_data")
             lab_flagged = result.get("flagged_values")
 
     grouped_str = json.dumps(results_by_type, indent=2, ensure_ascii=False)
+    flagged_str = json.dumps(all_flagged_values, indent=2, ensure_ascii=False) or "[]"
+    medications_str = json.dumps(list(set(all_medications)), ensure_ascii=False) or "[]"
 
     prompt = f"""
         You are a senior medical assistant preparing a travel health passport for a patient visiting a foreign doctor.
@@ -234,6 +244,12 @@ def build_doctor_pack(
 
         Document summaries:
         {grouped_str[:6000]}
+
+        Verified abnormal lab values (rule-based, include ALL of these in abnormal_values, do not summarise away any):
+        {flagged_str}
+
+        Extracted medications across all documents (include ALL):
+        {medications_str}
 
         Return this exact structure:
         {{
@@ -252,9 +268,9 @@ def build_doctor_pack(
             "prescriptions": "<summary of prescriptions>",
             "other": "<any other relevant findings>"
         }},
-        "current_medications": ["<medication 1>", "<medication 2>"],
-        "abnormal_values": ["<only numeric lab test results outside the reference range, e.g. 'Vitamin D 17 ng/mL (normal 30-100)'. Do NOT include diagnoses, conditions, or symptoms here>"],
-        "recent_medical_activities": ["<activity 1 with date>", "<activity 2 with date>"]
+        "current_medications": ["<every medication from the extracted medications list>", "..."],
+        "abnormal_values": ["<one entry per verified abnormal value, formatted as 'Name value unit (status, normal: range)'. Include EVERY entry from the verified abnormal lab values list above>", "..."],
+        "recent_medical_activities": ["<activity 1 with date>", "..."]
         }}
     """
 

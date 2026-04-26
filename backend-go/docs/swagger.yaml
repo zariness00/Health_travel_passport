@@ -1,0 +1,426 @@
+basePath: /api
+definitions:
+  domain.Category:
+    enum:
+    - Lab Results
+    - Doctor Letters
+    - Medications
+    - Imaging & Scans
+    - Unknown
+    type: string
+    x-enum-varnames:
+    - CategoryLabResults
+    - CategoryDoctorLetters
+    - CategoryMedications
+    - CategoryImagingScans
+    - CategoryUnknown
+  domain.CategoryCount:
+    properties:
+      category:
+        $ref: '#/definitions/domain.Category'
+      count:
+        type: integer
+    type: object
+  domain.DoctorPack:
+    properties:
+      content: {}
+      created_at:
+        type: string
+      id:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  domain.Document:
+    properties:
+      category:
+        $ref: '#/definitions/domain.Category'
+      created_at:
+        type: string
+      id:
+        type: string
+      metadata: {}
+      original_name:
+        type: string
+      status:
+        $ref: '#/definitions/domain.DocumentStatus'
+      storage_path:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  domain.DocumentStatus:
+    enum:
+    - PENDING
+    - PROCESSED
+    - FAILED
+    type: string
+    x-enum-varnames:
+    - StatusPending
+    - StatusProcessed
+    - StatusFailed
+  domain.Medication:
+    properties:
+      created_at:
+        type: string
+      dosage:
+        type: string
+      duration:
+        type: string
+      frequency:
+        type: string
+      id:
+        type: string
+      instructions:
+        type: string
+      language:
+        type: string
+      name:
+        type: string
+      source:
+        type: string
+      source_doc_id:
+        type: string
+      source_label:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  domain.Profile:
+    properties:
+      created_at:
+        type: string
+      date_of_birth:
+        type: string
+      email:
+        type: string
+      first_name:
+        type: string
+      id:
+        type: string
+      last_name:
+        type: string
+      onboarded:
+        type: boolean
+      sex:
+        type: string
+      updated_at:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: API for uploading and managing medical documents with AI-powered metadata
+    extraction.
+  title: Medical Document Management API
+  version: "1.0"
+paths:
+  /doctor-pack:
+    post:
+      description: Triggers AI processing of all user documents and waits for the
+        summary JSON
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.DoctorPack'
+      security:
+      - BearerAuth: []
+      summary: Generate Doctor Pack
+      tags:
+      - doctor-pack
+  /documents:
+    get:
+      description: Get a paginated list of documents filtered by category for the
+        current user
+      parameters:
+      - description: Category name
+        in: query
+        name: category
+        required: true
+        type: string
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Page size (default 10)
+        in: query
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Document'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get documents by category
+      tags:
+      - documents
+    post:
+      consumes:
+      - multipart/form-data
+      description: 'Upload single or multiple medical documents with a user-selected
+        category. Allowed categories: "Lab Results", "Doctor Letters", "Medications",
+        "Imaging & Scans"'
+      parameters:
+      - description: Document category (Lab Results, Doctor Letters, Medications,
+          Imaging & Scans)
+        in: formData
+        name: category
+        required: true
+        type: string
+      - description: Documents to upload
+        in: formData
+        name: documents
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              items:
+                type: string
+              type: array
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Upload documents
+      tags:
+      - documents
+  /documents/{id}:
+    get:
+      description: Get full details and metadata for a specific document belonging
+        to the user
+      parameters:
+      - description: Document ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get document detail
+      tags:
+      - documents
+  /documents/counts:
+    get:
+      description: Get the number of documents in each category for the current user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.CategoryCount'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get category counts
+      tags:
+      - documents
+  /me:
+    get:
+      description: Get the user ID and email from the verified JWT
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get current user
+      tags:
+      - user
+  /medications:
+    get:
+      description: Get all medication records for the current user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Medication'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get medications
+      tags:
+      - medications
+    post:
+      consumes:
+      - application/json
+      description: Create a new medication record
+      parameters:
+      - description: Medication data
+        in: body
+        name: medication
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Medication'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Medication'
+      security:
+      - BearerAuth: []
+      summary: Create medication
+      tags:
+      - medications
+  /medications/{id}:
+    delete:
+      description: Delete a medication record
+      parameters:
+      - description: Medication ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Delete medication
+      tags:
+      - medications
+    patch:
+      consumes:
+      - application/json
+      description: Partial update of a medication record
+      parameters:
+      - description: Medication ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Medication data
+        in: body
+        name: medication
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Medication'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Medication'
+      security:
+      - BearerAuth: []
+      summary: Update medication
+      tags:
+      - medications
+  /profile:
+    get:
+      description: Get or auto-create the user profile
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Profile'
+      security:
+      - BearerAuth: []
+      summary: Get user profile
+      tags:
+      - user
+    patch:
+      consumes:
+      - application/json
+      description: Partial update of user profile fields
+      parameters:
+      - description: Profile fields to update
+        in: body
+        name: profile
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Profile'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Profile'
+      security:
+      - BearerAuth: []
+      summary: Update user profile
+      tags:
+      - user
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and then your Supabase JWT.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
