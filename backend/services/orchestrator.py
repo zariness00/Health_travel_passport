@@ -231,8 +231,19 @@ def build_doctor_pack(
             lab_extracted = result.get("extracted_data")
             lab_flagged = result.get("flagged_values")
 
+    # dedupe flagged values by name (case-insensitive), cap at 5
+    seen = set()
+    deduped_flagged = []
+    for v in all_flagged_values:
+        key = v.get("name", "").lower().strip()
+        if key and key not in seen:
+            seen.add(key)
+            deduped_flagged.append(v)
+        if len(deduped_flagged) >= 5:
+            break
+
     grouped_str = json.dumps(results_by_type, indent=2, ensure_ascii=False)
-    flagged_str = json.dumps(all_flagged_values, indent=2, ensure_ascii=False) or "[]"
+    flagged_str = json.dumps(deduped_flagged, indent=2, ensure_ascii=False) or "[]"
     medications_str = json.dumps(list(set(all_medications)), ensure_ascii=False) or "[]"
 
     prompt = f"""
@@ -262,11 +273,7 @@ def build_doctor_pack(
             "languages": ["<language 1>", "<language 2>"]
         }},
         "medical_history_summary": {{
-            "blood_tests": "<summary of blood test findings>",
-            "doctor_letters": "<summary of doctor letter findings>",
-            "xray_reports": "<summary of xray findings>",
-            "prescriptions": "<summary of prescriptions>",
-            "other": "<any other relevant findings>"
+            "summary": "<a single coherent narrative of 5-6 sentences combining findings across all documents — diagnoses, key history, ongoing issues>"
         }},
         "current_medications": ["<every medication from the extracted medications list>", "..."],
         "abnormal_values": ["<one entry per verified abnormal value, formatted as 'Name value unit (status, normal: range)'. Include EVERY entry from the verified abnormal lab values list above>", "..."],
